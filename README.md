@@ -13,13 +13,14 @@ The hosted version requires no installation. Open the link in a modern browser a
 ### Map editor
 
 - Fixed-size 80 × 45 map canvas
-- Existing `g0`–`g3` tilesets
+- Existing `g0`–`g3` tilesets, which correspond to cave, sky garden, limestone cave and snow field, in that order
 - Auto tiles and wall-edge connection
 - Auto shading for cave walls and bushes
 - Water, waterfall, candle, and stalactite helpers
 - Pen, eraser, bucket, lasso, line, rectangle, copy, cut, and paste tools
 - Zoom, panning, adjustable brush size, and undo/redo
 - Encoded-color map import and export as an 80 × 45 PNG
+- There're still some bugs but it's good enough I think 
 
 ### Tileset editor
 
