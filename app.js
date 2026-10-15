@@ -177,6 +177,7 @@
   const tilesetColorInput = document.querySelector("#tileset-color");
   const tilesetColorValue = document.querySelector("#tileset-color-value");
   const colorMapToggle = document.querySelector("#color-map-toggle");
+  const gridToggle = document.querySelector("#grid-toggle");
   const colorMapControl = document.querySelector("#color-map-control");
   const brushControl = document.querySelector("#brush-control");
   const mapDimensions = document.querySelector("#map-dimensions");
@@ -921,26 +922,13 @@
       tilesetContext.drawImage(source, 0, 0, 64, 64, 0, 0, 64 * TILESET_SCALE, 64 * TILESET_SCALE);
     }
 
-    tilesetContext.strokeStyle = "rgba(255, 255, 255, 0.11)";
-    tilesetContext.lineWidth = 1;
-    const gridCount = editorMode === "tileset" ? 64 : 8;
-    const gridStep = editorMode === "tileset" ? TILESET_SCALE : TILE_SIZE * TILESET_SCALE;
-    for (let i = 0; i <= gridCount; i += 1) {
-      const position = i * gridStep + 0.5;
-      tilesetContext.beginPath();
-      tilesetContext.moveTo(position, 0);
-      tilesetContext.lineTo(position, tilesetCanvas.height);
-      tilesetContext.stroke();
-      tilesetContext.beginPath();
-      tilesetContext.moveTo(0, position);
-      tilesetContext.lineTo(tilesetCanvas.width, position);
-      tilesetContext.stroke();
-    }
-
-    if (editorMode === "tileset") {
-      tilesetContext.strokeStyle = "rgba(255, 255, 255, 0.22)";
-      for (let i = 0; i <= 8; i += 1) {
-        const position = i * TILE_SIZE * TILESET_SCALE + 0.5;
+    if (gridToggle.checked) {
+      tilesetContext.strokeStyle = "rgba(255, 255, 255, 0.11)";
+      tilesetContext.lineWidth = 1;
+      const gridCount = editorMode === "tileset" ? 64 : 8;
+      const gridStep = editorMode === "tileset" ? TILESET_SCALE : TILE_SIZE * TILESET_SCALE;
+      for (let i = 0; i <= gridCount; i += 1) {
+        const position = i * gridStep + 0.5;
         tilesetContext.beginPath();
         tilesetContext.moveTo(position, 0);
         tilesetContext.lineTo(position, tilesetCanvas.height);
@@ -949,6 +937,21 @@
         tilesetContext.moveTo(0, position);
         tilesetContext.lineTo(tilesetCanvas.width, position);
         tilesetContext.stroke();
+      }
+
+      if (editorMode === "tileset") {
+        tilesetContext.strokeStyle = "rgba(255, 255, 255, 0.22)";
+        for (let i = 0; i <= 8; i += 1) {
+          const position = i * TILE_SIZE * TILESET_SCALE + 0.5;
+          tilesetContext.beginPath();
+          tilesetContext.moveTo(position, 0);
+          tilesetContext.lineTo(position, tilesetCanvas.height);
+          tilesetContext.stroke();
+          tilesetContext.beginPath();
+          tilesetContext.moveTo(0, position);
+          tilesetContext.lineTo(tilesetCanvas.width, position);
+          tilesetContext.stroke();
+        }
       }
     }
 
@@ -1080,21 +1083,23 @@
       shapePaintPositions(shapeDrag).forEach(({ x, y }) => drawMapCell(previewCell, x, y));
     }
 
-    mapContext.strokeStyle = "rgba(255, 255, 255, 0.12)";
-    mapContext.lineWidth = 1;
-    for (let column = 1; column < MAP_COLUMNS; column += 1) {
-      const position = column * MAP_CELL_SIZE + 0.5;
-      mapContext.beginPath();
-      mapContext.moveTo(position, 0);
-      mapContext.lineTo(position, mapCanvas.height);
-      mapContext.stroke();
-    }
-    for (let row = 1; row < MAP_ROWS; row += 1) {
-      const position = row * MAP_CELL_SIZE + 0.5;
-      mapContext.beginPath();
-      mapContext.moveTo(0, position);
-      mapContext.lineTo(mapCanvas.width, position);
-      mapContext.stroke();
+    if (gridToggle.checked) {
+      mapContext.strokeStyle = "rgba(255, 255, 255, 0.12)";
+      mapContext.lineWidth = 1;
+      for (let column = 1; column < MAP_COLUMNS; column += 1) {
+        const position = column * MAP_CELL_SIZE + 0.5;
+        mapContext.beginPath();
+        mapContext.moveTo(position, 0);
+        mapContext.lineTo(position, mapCanvas.height);
+        mapContext.stroke();
+      }
+      for (let row = 1; row < MAP_ROWS; row += 1) {
+        const position = row * MAP_CELL_SIZE + 0.5;
+        mapContext.beginPath();
+        mapContext.moveTo(0, position);
+        mapContext.lineTo(mapCanvas.width, position);
+        mapContext.stroke();
+      }
     }
 
     if (editorMode === "tileset") return;
@@ -2319,6 +2324,12 @@
   colorMapToggle.addEventListener("change", () => {
     renderMap();
     setStatus(colorMapToggle.checked ? "Encoded color preview" : `Tile preview · ${currentTileset}`);
+  });
+
+  gridToggle.addEventListener("change", () => {
+    renderTileset();
+    renderMap();
+    setStatus(gridToggle.checked ? "Grid shown" : "Grid hidden");
   });
 
   tilesetColorInput.addEventListener("input", (event) => {
