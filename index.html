@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SR2 Map Editor</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="notification" class="notification" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">SR</div>
+          <div>
+            <p class="eyebrow">STICK RANGER 2</p>
+          <h1 id="editor-title">Map editor</h1>
+          </div>
+        </div>
+
+        <nav class="mode-tabs" aria-label="Editor mode">
+          <button class="mode-tab active" type="button" data-editor-mode="map" aria-selected="true">Map editor</button>
+          <button class="mode-tab" type="button" data-editor-mode="tileset" aria-selected="false">Tileset editor</button>
+        </nav>
+
+        <div class="topbar-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status-text">Blank canvas · g0</span>
+        </div>
+      </header>
+
+      <main class="editor-layout">
+        <section class="panel tileset-panel" aria-labelledby="tileset-title">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-label">Tileset</p>
+              <h2 id="tileset-title">g0</h2>
+            </div>
+            <label class="select-wrap">
+              <span class="sr-only">Choose tileset</span>
+              <select id="tileset-select">
+                <option value="g0">g0</option>
+                <option value="g1">g1</option>
+                <option value="g2">g2</option>
+                <option value="g3">g3</option>
+                <option value="__new_tileset__">+new tileset</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="canvas-frame tileset-frame">
+            <canvas id="tileset-canvas" width="512" height="512" aria-label="Tileset picker"></canvas>
+          </div>
+
+          <div class="panel-note">
+            <span class="note-key">8 × 8</span>
+            <span>tile size · 64 tiles per set</span>
+          </div>
+        </section>
+
+        <aside class="tool-panel" aria-labelledby="tools-title">
+          <div class="panel-heading tool-heading">
+            <div>
+              <p class="panel-label">Tools</p>
+              <h2 id="tools-title">Draw</h2>
+            </div>
+          </div>
+
+          <div class="tool-grid" role="toolbar" aria-label="Map tools">
+            <button class="tool-button active" type="button" data-tool="pen" aria-label="Pen" aria-pressed="true">
+              <img src="data/pencil.png" alt="" />
+              <span>Pen</span>
+            </button>
+            <button class="tool-button" type="button" data-tool="eraser" aria-label="Eraser" aria-pressed="false">
+              <img src="data/eraser.png" alt="" />
+              <span>Eraser</span>
+            </button>
+            <button class="tool-button" type="button" data-tool="bucket" aria-label="Bucket fill" aria-pressed="false">
+              <img src="data/bucker.png" alt="" />
+              <span>Bucket</span>
+            </button>
+            <button class="tool-button map-only-tool" type="button" data-tool="lasso" aria-label="Rectangle lasso" aria-pressed="false">
+              <img src="data/lasso.png" alt="" />
+              <span>Lasso</span>
+            </button>
+            <button class="tool-button map-only-tool" type="button" data-tool="line" aria-label="Line tool" aria-pressed="false">
+              <img src="data/line.png" alt="" />
+              <span>Line</span>
+            </button>
+            <button class="tool-button map-only-tool" type="button" data-tool="rectangle" aria-label="Filled rectangle tool" aria-pressed="false">
+              <img src="data/rectangle.png" alt="" />
+              <span>Rectangle</span>
+            </button>
+            <button class="tool-button tileset-only-tool" type="button" data-tool="eyedrop" aria-label="Eyedropper" aria-pressed="false" hidden>
+              <img src="data/eyedrop.png" alt="" />
+              <span>Eyedrop</span>
+            </button>
+          </div>
+
+          <div class="tool-divider"></div>
+
+          <div class="tool-help">
+            <p id="tool-help-title">Pen selected</p>
+            <p id="tool-help-copy">Paint the selected tile onto the map.</p>
+          </div>
+
+          <div id="map-options">
+            <label class="option-toggle auto-tiles-option">
+              <input id="auto-tiles-toggle" type="checkbox" checked />
+              <span>Auto tiles</span>
+            </label>
+
+            <label class="option-toggle auto-shade-option">
+              <input id="auto-shade-toggle" type="checkbox" checked />
+              <span>Auto shade</span>
+            </label>
+
+            <label class="option-toggle ignore-walls-option">
+              <input id="ignore-walls-toggle" type="checkbox" checked />
+              <span>Ignore walls</span>
+            </label>
+          </div>
+
+          <div id="tileset-options" class="tileset-options" hidden>
+            <label class="color-control" for="tileset-color">
+              <span>Color</span>
+              <input id="tileset-color" type="color" value="#ffffff" aria-label="Tileset drawing color" />
+              <output id="tileset-color-value" for="tileset-color">#ffffff</output>
+            </label>
+          </div>
+
+          <button class="clear-button" id="clear-map" type="button">Clear map</button>
+        </aside>
+
+        <section class="panel map-panel" aria-labelledby="map-title">
+          <div class="panel-heading map-heading">
+            <div>
+              <p class="panel-label">Preview map</p>
+              <h2 id="map-title">Untitled map</h2>
+            </div>
+            <div class="map-actions">
+              <label class="brush-control-inline" id="brush-control">
+                <span>Brush</span>
+                <output id="brush-size-value" for="brush-size">1</output>
+                <input id="brush-size" type="range" min="1" max="10" step="1" value="1" aria-label="Pen and eraser size" />
+              </label>
+              <label class="view-toggle" id="color-map-control">
+                <input id="color-map-toggle" type="checkbox" />
+                <span>Encoded colors</span>
+              </label>
+              <div class="map-dimensions" id="map-dimensions">80 × 45</div>
+              <div class="map-file-actions">
+                <button class="map-action-button" id="import-map" type="button">Import PNG</button>
+                <button class="map-action-button" id="export-map" type="button">Export PNG</button>
+                <input id="map-file-input" type="file" accept="image/png" hidden />
+              </div>
+            </div>
+          </div>
+
+          <div class="canvas-frame map-frame">
+            <canvas id="map-canvas" width="800" height="450" tabindex="0" aria-label="80 by 45 editable map"></canvas>
+          </div>
+
+          <div class="map-footer">
+            <span id="cursor-position">Cell —, —</span>
+            <span id="selection-status">No selection</span>
+            <span class="footer-spacer"></span>
+            <span id="active-tool-label">Pen</span>
+          </div>
+        </section>
+      </main>
+
+      <footer class="app-footer">
+        <span>New blank map</span>
+        <span class="footer-separator">/</span>
+        <span>Tiles are enlarged for editing</span>
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
