@@ -24,9 +24,10 @@ The hosted version requires no installation. Open the link in a modern browser a
 ### Tileset editor
 
 - Edit tilesets at their native 64 × 64 resolution
+- Whole-tileset and single-tile editing modes with previous/next navigation
 - Pen, eraser, bucket, and eyedropper tools
 - Color picker and black-background erasing
-- Live read-only map preview
+- Zoomable, pannable, live read-only map preview
 - Import and export 64 × 64 PNG tilesets
 - Use `+new tileset` to create a session-only tileset from the included template
 

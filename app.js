@@ -3,13 +3,18 @@
 
   const MAP_COLUMNS = 80;
   const MAP_ROWS = 45;
-  const MAP_CELL_SIZE = 10;
   const TILE_SIZE = 8;
+  const MAP_CELL_SIZE = TILE_SIZE;
   const TILESET_SCALE = 8;
   const TILESET_NAMES = ["g0", "g1", "g2", "g3"];
   const NEW_TILESET_VALUE = "__new_tileset__";
   const AUTO_TILE_NONE_INDEX = 3;
   const AUTO_TILE_FULL_INDEX = 9;
+  const GATE_DEFAULT_INDEX = 27;
+  const GATE_CAVE_INDEX = 28;
+  const GATE_WATER_INDEX = 29;
+  const WATERLOGGED_PLATFORM_INDEX = 25;
+  const WATERLOGGED_GATE_INDEX = 29;
   const WATER_SURFACE_INDEX = 30;
   const WATER_BODY_INDEX = 31;
   const WATERFALL_TOP_INDEX = 38;
@@ -35,7 +40,9 @@
   ]);
   const VERTICAL_SPECIAL_GROUPS = [
     { indexes: new Set([36, 44]), single: 44, top: 36, bottom: 44, name: "Stalactite" },
-    { indexes: new Set([37, 45]), single: 37, top: 37, bottom: 45, name: "Candle" },
+    { indexes: new Set([37, 45]), single: 37, top: 37, bottom: 45, name: "Cave candle" },
+    { indexes: new Set([52, 60]), single: 60, top: 52, bottom: 60, name: "Statue" },
+    { indexes: new Set([53, 61]), single: 53, top: 53, bottom: 61, name: "Outside candle" },
   ];
   const VERTICAL_SPECIAL_GROUP_BY_INDEX = new Map();
   VERTICAL_SPECIAL_GROUPS.forEach((group) => {
@@ -124,6 +131,9 @@
     if (!TILE_INDEX_BY_ENCODED_COLOR.has(color)) TILE_INDEX_BY_ENCODED_COLOR.set(color, tileId - 1);
   });
   TILE_INDEX_BY_ENCODED_COLOR.set("#ffffff", AUTO_TILE_NONE_INDEX);
+  // Tile 44 and tile 48 share an encoded color. Tile 44 is an excluded
+  // active decoration, so decoded maps use the visible inactive tile 48.
+  TILE_INDEX_BY_ENCODED_COLOR.set("#666600", 47);
   const DEGRADE_INDEX_BY_ENCODED_COLOR = new Map([
     ["#bbbbbb", 12],
     ["#aaaaaa", 13],
@@ -156,6 +166,7 @@
   const tilesetCanvas = document.querySelector("#tileset-canvas");
   const mapContext = mapCanvas.getContext("2d");
   const tilesetContext = tilesetCanvas.getContext("2d");
+  const editorIcon = document.querySelector("#editor-icon");
   const editorTitle = document.querySelector("#editor-title");
   const modeTabs = [...document.querySelectorAll("[data-editor-mode]")];
   const tilesetSelect = document.querySelector("#tileset-select");
@@ -174,8 +185,15 @@
   const ignoreWallsToggle = document.querySelector("#ignore-walls-toggle");
   const mapOptions = document.querySelector("#map-options");
   const tilesetOptions = document.querySelector("#tileset-options");
+  const tilesetViewControls = document.querySelector("#tileset-view-controls");
   const tilesetColorInput = document.querySelector("#tileset-color");
-  const tilesetColorValue = document.querySelector("#tileset-color-value");
+  const tilesetColorHexInput = document.querySelector("#tileset-color-hex");
+  const wholeTilesetModeButton = document.querySelector("#whole-tileset-mode");
+  const singleTilesetModeButton = document.querySelector("#single-tileset-mode");
+  const singleTileControl = document.querySelector("#single-tile-control");
+  const previousTileButton = document.querySelector("#previous-tile");
+  const nextTileButton = document.querySelector("#next-tile");
+  const tileNumberInput = document.querySelector("#tile-number");
   const colorMapToggle = document.querySelector("#color-map-toggle");
   const gridToggle = document.querySelector("#grid-toggle");
   const colorMapControl = document.querySelector("#color-map-control");
@@ -243,6 +261,10 @@
   let mapZoom = 1;
   let mapPanX = 0;
   let mapPanY = 0;
+  let previewMapZoom = 1;
+  let previewMapPanX = 0;
+  let previewMapPanY = 0;
+  let tilesetViewMode = "whole";
   let isPanning = false;
   let isMovingSelection = false;
   let movingSelection = null;
@@ -837,6 +859,9 @@
         movingSelection = null;
         isMovingSelection = false;
         recalculateAutoTiles(currentTileset);
+        normalizeVerticalSpecialTiles();
+        normalizeWaterTiles();
+        normalizeGateTiles();
         updateSelectionLabel();
         renderMap();
         finishHistoryEdit();
@@ -892,6 +917,7 @@
     recalculateAutoTiles(currentTileset);
     normalizeVerticalSpecialTiles();
     normalizeWaterTiles();
+    normalizeGateTiles();
     normalizeAutoWaterfalls();
     for (let row = 0; row < MAP_ROWS; row += 1) {
       previewMapGrid[row].splice(0, MAP_COLUMNS, ...mapGrid[row].map((cell) => cloneCell(cell)));
@@ -912,21 +938,56 @@
     activeToolLabel.textContent = tool[0].toUpperCase() + tool.slice(1);
   }
 
+  function updateTilesetViewControls() {
+    const single = tilesetViewMode === "single";
+    wholeTilesetModeButton.classList.toggle("active", !single);
+    singleTilesetModeButton.classList.toggle("active", single);
+    wholeTilesetModeButton.setAttribute("aria-pressed", String(!single));
+    singleTilesetModeButton.setAttribute("aria-pressed", String(single));
+    singleTileControl.hidden = !single;
+    tileNumberInput.value = String(selectedTile + 1);
+  }
+
+  function setSelectedTile(tile, announce = true) {
+    selectedTile = clamp(Number(tile), 0, 63);
+    updateTilesetViewControls();
+    renderTileset();
+    if (announce) updateSelectedTileStatus(selectedTile);
+  }
+
+  function setTilesetViewMode(mode) {
+    if (mode !== "whole" && mode !== "single") return;
+    if (mode === "single" && tilesetViewMode !== "single") selectedTile = 0;
+    tilesetViewMode = mode;
+    updateTilesetViewControls();
+    renderTileset();
+    setStatus(mode === "single"
+      ? `Single tile ${selectedTile + 1} · ${tilesetDisplayName(currentTileset)}`
+      : `Whole tileset · ${tilesetDisplayName(currentTileset)}`);
+  }
+
   function renderTileset() {
     tilesetContext.clearRect(0, 0, tilesetCanvas.width, tilesetCanvas.height);
     tilesetContext.fillStyle = "#000";
     tilesetContext.fillRect(0, 0, tilesetCanvas.width, tilesetCanvas.height);
 
+    const single = editorMode === "tileset" && tilesetViewMode === "single";
     const source = getTilesetSource(currentTileset);
     if (source) {
-      tilesetContext.drawImage(source, 0, 0, 64, 64, 0, 0, 64 * TILESET_SCALE, 64 * TILESET_SCALE);
+      if (single) {
+        const sourceX = (selectedTile % 8) * TILE_SIZE;
+        const sourceY = Math.floor(selectedTile / 8) * TILE_SIZE;
+        tilesetContext.drawImage(source, sourceX, sourceY, TILE_SIZE, TILE_SIZE, 0, 0, 512, 512);
+      } else {
+        tilesetContext.drawImage(source, 0, 0, 64, 64, 0, 0, 64 * TILESET_SCALE, 64 * TILESET_SCALE);
+      }
     }
 
     if (gridToggle.checked) {
       tilesetContext.strokeStyle = "rgba(255, 255, 255, 0.11)";
       tilesetContext.lineWidth = 1;
-      const gridCount = editorMode === "tileset" ? 64 : 8;
-      const gridStep = editorMode === "tileset" ? TILESET_SCALE : TILE_SIZE * TILESET_SCALE;
+      const gridCount = single ? 8 : editorMode === "tileset" ? 64 : 8;
+      const gridStep = single ? 64 : editorMode === "tileset" ? TILESET_SCALE : TILE_SIZE * TILESET_SCALE;
       for (let i = 0; i <= gridCount; i += 1) {
         const position = i * gridStep + 0.5;
         tilesetContext.beginPath();
@@ -939,7 +1000,7 @@
         tilesetContext.stroke();
       }
 
-      if (editorMode === "tileset") {
+      if (editorMode === "tileset" && !single) {
         tilesetContext.strokeStyle = "rgba(255, 255, 255, 0.22)";
         for (let i = 0; i <= 8; i += 1) {
           const position = i * TILE_SIZE * TILESET_SCALE + 0.5;
@@ -955,11 +1016,15 @@
       }
     }
 
-    const tileX = (selectedTile % 8) * TILE_SIZE * TILESET_SCALE;
-    const tileY = Math.floor(selectedTile / 8) * TILE_SIZE * TILESET_SCALE;
     tilesetContext.strokeStyle = "#fff";
     tilesetContext.lineWidth = 3;
-    tilesetContext.strokeRect(tileX + 1.5, tileY + 1.5, TILE_SIZE * TILESET_SCALE - 3, TILE_SIZE * TILESET_SCALE - 3);
+    if (single) {
+      tilesetContext.strokeRect(1.5, 1.5, tilesetCanvas.width - 3, tilesetCanvas.height - 3);
+    } else {
+      const tileX = (selectedTile % 8) * TILE_SIZE * TILESET_SCALE;
+      const tileY = Math.floor(selectedTile / 8) * TILE_SIZE * TILESET_SCALE;
+      tilesetContext.strokeRect(tileX + 1.5, tileY + 1.5, TILE_SIZE * TILESET_SCALE - 3, TILE_SIZE * TILESET_SCALE - 3);
+    }
   }
 
   function drawMapCell(cell, column, row) {
@@ -1157,10 +1222,17 @@
 
   function tilesetPixelFromEvent(event) {
     const bounds = tilesetCanvas.getBoundingClientRect();
-    const x = Math.floor(((event.clientX - bounds.left) / bounds.width) * 64);
-    const y = Math.floor(((event.clientY - bounds.top) / bounds.height) * 64);
-    if (x < 0 || x >= 64 || y < 0 || y >= 64) return null;
-    return { x, y };
+    const pixelX = Math.floor(((event.clientX - bounds.left) / bounds.width) * (tilesetViewMode === "single" ? TILE_SIZE : 64));
+    const pixelY = Math.floor(((event.clientY - bounds.top) / bounds.height) * (tilesetViewMode === "single" ? TILE_SIZE : 64));
+    if (pixelX < 0 || pixelX >= (tilesetViewMode === "single" ? TILE_SIZE : 64)
+      || pixelY < 0 || pixelY >= (tilesetViewMode === "single" ? TILE_SIZE : 64)) return null;
+    if (tilesetViewMode === "single") {
+      return {
+        x: (selectedTile % 8) * TILE_SIZE + pixelX,
+        y: Math.floor(selectedTile / 8) * TILE_SIZE + pixelY,
+      };
+    }
+    return { x: pixelX, y: pixelY };
   }
 
   function colorFromPixel(data, offset) {
@@ -1177,8 +1249,17 @@
   }
 
   function updateTilesetColor(color) {
-    tilesetColorInput.value = color;
-    tilesetColorValue.textContent = color.toUpperCase();
+    const normalized = normalizeHexColor(color);
+    if (!normalized) return false;
+    tilesetColorInput.value = normalized;
+    tilesetColorHexInput.value = normalized.toUpperCase();
+    return true;
+  }
+
+  function normalizeHexColor(color) {
+    const value = String(color ?? "").trim();
+    const match = value.match(/^#?([0-9a-f]{6})$/i);
+    return match ? `#${match[1].toLowerCase()}` : null;
   }
 
   function parseHexColor(color) {
@@ -1227,7 +1308,7 @@
     if (!position) return false;
     if (activeTool === "eyedrop") {
       updateTilesetColor(tilesetPixelColor(position));
-      setStatus(`Picked ${tilesetColorValue.textContent}`);
+      setStatus(`Picked ${tilesetColorHexInput.value}`);
       setActiveTool("pen");
       renderTileset();
       return false;
@@ -1341,15 +1422,21 @@
   }
 
   function applyMapViewport() {
-    mapCanvas.style.width = `${mapZoom * 100}%`;
-    mapCanvas.style.height = `${mapZoom * 100}%`;
-    mapCanvas.style.transform = `translate(${mapPanX}px, ${mapPanY}px)`;
+    const preview = editorMode === "tileset";
+    const zoom = preview ? previewMapZoom : mapZoom;
+    const panX = preview ? previewMapPanX : mapPanX;
+    const panY = preview ? previewMapPanY : mapPanY;
+    mapCanvas.style.width = `${zoom * 100}%`;
+    mapCanvas.style.height = `${zoom * 100}%`;
+    mapCanvas.style.transform = `translate(${panX}px, ${panY}px)`;
     mapFrame.classList.toggle("is-panning", isPanning);
   }
 
   function zoomMap(event) {
-    const nextZoom = clamp(mapZoom + (event.deltaY < 0 ? 0.25 : -0.25), 0.5, 6);
-    if (nextZoom === mapZoom) return;
+    const preview = editorMode === "tileset";
+    const currentZoom = preview ? previewMapZoom : mapZoom;
+    const nextZoom = clamp(currentZoom + (event.deltaY < 0 ? 0.25 : -0.25), 0.5, 6);
+    if (nextZoom === currentZoom) return;
 
     const frameBounds = mapFrame.getBoundingClientRect();
     const canvasBounds = mapCanvas.getBoundingClientRect();
@@ -1360,11 +1447,19 @@
     const nextWidth = frameBounds.width * nextZoom;
     const nextHeight = frameBounds.height * nextZoom;
 
-    mapPanX = cursorX - ((frameBounds.width - nextWidth) / 2 + pointX * nextWidth);
-    mapPanY = cursorY - ((frameBounds.height - nextHeight) / 2 + pointY * nextHeight);
-    mapZoom = nextZoom;
+    const nextPanX = cursorX - ((frameBounds.width - nextWidth) / 2 + pointX * nextWidth);
+    const nextPanY = cursorY - ((frameBounds.height - nextHeight) / 2 + pointY * nextHeight);
+    if (preview) {
+      previewMapPanX = nextPanX;
+      previewMapPanY = nextPanY;
+      previewMapZoom = nextZoom;
+    } else {
+      mapPanX = nextPanX;
+      mapPanY = nextPanY;
+      mapZoom = nextZoom;
+    }
     applyMapViewport();
-    setStatus(`Map zoom ${Math.round(mapZoom * 100)}%`);
+    setStatus(`${preview ? "Preview map" : "Map"} zoom ${Math.round(nextZoom * 100)}%`);
   }
 
   function selectionContains(position) {
@@ -1584,7 +1679,7 @@
     }
 
     if (foundOverlongChain) {
-      notify("Candle and stalactite chains can only be 2 cells tall.", "warning");
+      notify("Stalactite, candle, statue, and outside-candle chains can only be 2 cells tall.", "warning");
     }
   }
 
@@ -1596,9 +1691,39 @@
         const cellAbove = mapGrid[row - 1]?.[column] ?? null;
         const blockedByWall = isSolidWallCell(cellAbove);
         const blockedByWater = isWaterCell(cellAbove);
-        cell.index = blockedByWall || blockedByWater ? WATER_BODY_INDEX : WATER_SURFACE_INDEX;
+        const blockedByWaterloggedSupport = Boolean(
+          cellAbove
+          && (cellAbove.index === WATERLOGGED_PLATFORM_INDEX || cellAbove.index === WATERLOGGED_GATE_INDEX),
+        );
+        cell.index = blockedByWall || blockedByWater || blockedByWaterloggedSupport
+          ? WATER_BODY_INDEX
+          : WATER_SURFACE_INDEX;
       }
     }
+  }
+
+  function normalizeGateTiles() {
+    let changed = false;
+    for (let row = 0; row < MAP_ROWS; row += 1) {
+      for (let column = 0; column < MAP_COLUMNS; column += 1) {
+        const cell = mapGrid[row][column];
+        if (!cell || ![GATE_DEFAULT_INDEX, GATE_CAVE_INDEX, GATE_WATER_INDEX].includes(cell.index)) continue;
+
+        const west = mapGrid[row]?.[column - 1] ?? null;
+        const east = mapGrid[row]?.[column + 1] ?? null;
+        const nextIndex = isCaveWallCell(west) && isCaveWallCell(east)
+          ? GATE_CAVE_INDEX
+          : isWaterCell(west) && isWaterCell(east)
+            ? GATE_WATER_INDEX
+            : GATE_DEFAULT_INDEX;
+
+        if (cell.index !== nextIndex) {
+          cell.index = nextIndex;
+          changed = true;
+        }
+      }
+    }
+    return changed;
   }
 
   function collectWaterBasin(position) {
@@ -2026,6 +2151,7 @@
     editorMode = mode;
     document.body.dataset.editorMode = mode;
     const isTilesetEditor = mode === "tileset";
+    editorIcon.src = isTilesetEditor ? "data/tiles_editor.png" : "data/map_editor.png";
     editorTitle.textContent = isTilesetEditor ? "Tileset editor" : "Map editor";
     modeTabs.forEach((tab) => {
       const active = tab.dataset.editorMode === mode;
@@ -2034,6 +2160,7 @@
     });
     mapOptions.hidden = isTilesetEditor;
     tilesetOptions.hidden = !isTilesetEditor;
+    tilesetViewControls.hidden = !isTilesetEditor;
     brushControl.hidden = isTilesetEditor;
     colorMapControl.hidden = isTilesetEditor;
     mapDimensions.textContent = isTilesetEditor ? "64 × 64" : "80 × 45";
@@ -2115,9 +2242,7 @@
 
     const tile = tileFromEvent(event);
     if (tile === null) return;
-    selectedTile = tile;
-    renderTileset();
-    updateSelectedTileStatus(tile);
+    setSelectedTile(tile);
     event.preventDefault();
   });
 
@@ -2149,27 +2274,41 @@
     });
   });
 
+  wholeTilesetModeButton.addEventListener("click", () => setTilesetViewMode("whole"));
+  singleTilesetModeButton.addEventListener("click", () => setTilesetViewMode("single"));
+  previousTileButton.addEventListener("click", () => setSelectedTile(selectedTile - 1));
+  nextTileButton.addEventListener("click", () => setSelectedTile(selectedTile + 1));
+  tileNumberInput.addEventListener("change", (event) => {
+    const tileNumber = Number.parseInt(event.target.value, 10);
+    setSelectedTile(Number.isFinite(tileNumber) ? tileNumber - 1 : selectedTile);
+  });
+
   mapCanvas.addEventListener("wheel", (event) => {
-    if (editorMode !== "map") return;
+    if (editorMode !== "map" && editorMode !== "tileset") return;
     event.preventDefault();
     zoomMap(event);
   }, { passive: false });
 
   mapCanvas.addEventListener("pointerdown", (event) => {
-    if (editorMode !== "map") return;
+    if (editorMode !== "map" && editorMode !== "tileset") return;
+    if (editorMode === "tileset" && !spacePressed) return;
     if (spacePressed) {
       isPanning = true;
+      const preview = editorMode === "tileset";
       panStart = {
         pointerX: event.clientX,
         pointerY: event.clientY,
-        panX: mapPanX,
-        panY: mapPanY,
+        panX: preview ? previewMapPanX : mapPanX,
+        panY: preview ? previewMapPanY : mapPanY,
+        preview,
       };
       mapCanvas.setPointerCapture(event.pointerId);
       applyMapViewport();
       event.preventDefault();
       return;
     }
+
+    if (editorMode === "tileset") return;
 
     const position = mapCellFromEvent(event);
     if (!position) return;
@@ -2203,13 +2342,22 @@
   });
 
   mapCanvas.addEventListener("pointermove", (event) => {
-    if (editorMode !== "map") return;
+    if (editorMode !== "map" && editorMode !== "tileset") return;
     if (isPanning && panStart) {
-      mapPanX = panStart.panX + event.clientX - panStart.pointerX;
-      mapPanY = panStart.panY + event.clientY - panStart.pointerY;
+      const nextPanX = panStart.panX + event.clientX - panStart.pointerX;
+      const nextPanY = panStart.panY + event.clientY - panStart.pointerY;
+      if (panStart.preview) {
+        previewMapPanX = nextPanX;
+        previewMapPanY = nextPanY;
+      } else {
+        mapPanX = nextPanX;
+        mapPanY = nextPanY;
+      }
       applyMapViewport();
       return;
     }
+
+    if (editorMode === "tileset") return;
 
     const position = mapCellFromEvent(event);
     if (!position) return;
@@ -2230,13 +2378,14 @@
   });
 
   mapCanvas.addEventListener("pointerup", () => {
-    if (editorMode !== "map") return;
+    if (editorMode !== "map" && editorMode !== "tileset") return;
     if (isPanning) {
       isPanning = false;
       panStart = null;
       applyMapViewport();
       return;
     }
+    if (editorMode === "tileset") return;
     if (shapeDrag) commitShape();
     if (isMovingSelection) commitSelectionMove();
     if (isSelecting) finishSelection();
@@ -2246,10 +2395,14 @@
   });
 
   mapCanvas.addEventListener("pointercancel", () => {
-    if (editorMode !== "map") return;
+    if (editorMode !== "map" && editorMode !== "tileset") return;
     if (isPanning) {
       isPanning = false;
       panStart = null;
+    }
+    if (editorMode === "tileset") {
+      applyMapViewport();
+      return;
     }
     if (isMovingSelection) cancelSelectionMove();
     if (shapeDrag) {
@@ -2334,7 +2487,31 @@
 
   tilesetColorInput.addEventListener("input", (event) => {
     updateTilesetColor(event.target.value);
-    setStatus(`Tileset color ${event.target.value.toUpperCase()}`);
+    setStatus(`Tileset color ${tilesetColorHexInput.value}`);
+  });
+
+  function applyTilesetHexColor() {
+    const normalized = normalizeHexColor(tilesetColorHexInput.value);
+    if (!normalized) {
+      updateTilesetColor(tilesetColorInput.value);
+      notify("Enter a valid 6-digit hex color, such as #366496.", "warning");
+      return;
+    }
+    updateTilesetColor(normalized);
+    setStatus(`Tileset color ${tilesetColorHexInput.value}`);
+  }
+
+  tilesetColorHexInput.addEventListener("input", () => {
+    const normalized = normalizeHexColor(tilesetColorHexInput.value);
+    if (normalized) tilesetColorInput.value = normalized;
+  });
+
+  tilesetColorHexInput.addEventListener("change", applyTilesetHexColor);
+  tilesetColorHexInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    applyTilesetHexColor();
+    tilesetColorHexInput.blur();
   });
 
   previewMapImage.addEventListener("load", buildPreviewMap, { once: true });
@@ -2408,6 +2585,7 @@
   selectedTile = AUTO_TILE_NONE_INDEX;
   document.body.dataset.editorMode = editorMode;
   updateTilesetColor(tilesetColorInput.value);
+  updateTilesetViewControls();
   updateBrushSize(brushSizeInput.value);
   applyMapViewport();
   renderTileset();

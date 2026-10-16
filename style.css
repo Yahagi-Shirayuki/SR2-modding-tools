@@ -111,6 +111,13 @@ button {
   letter-spacing: -1px;
 }
 
+.brand-mark img {
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
 .eyebrow,
 .panel-label {
   margin: 0 0 4px;
@@ -247,7 +254,6 @@ h2 {
 canvas {
   display: block;
   image-rendering: pixelated;
-  image-rendering: crisp-edges;
 }
 
 #tileset-canvas {
@@ -266,7 +272,6 @@ canvas {
 
 body[data-editor-mode="tileset"] #map-canvas {
   cursor: default;
-  pointer-events: none;
 }
 
 body.space-pan #map-canvas {
@@ -431,6 +436,11 @@ body.space-pan #map-canvas {
   margin-bottom: 5px;
 }
 
+body[data-editor-mode="tileset"] .tool-divider,
+body[data-editor-mode="tileset"] .tool-help {
+  display: none;
+}
+
 #tool-help-title {
   color: #eee;
   font-size: 11px;
@@ -479,9 +489,23 @@ body.space-pan #map-canvas {
   border-top: 1px solid #202020;
 }
 
+.tileset-view-controls {
+  margin: -2px 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #202020;
+}
+
+.tileset-view-controls .tileset-view-control {
+  margin-top: 0;
+}
+
+.tileset-view-controls .single-tile-control {
+  margin-top: 8px;
+}
+
 .color-control {
   display: grid;
-  grid-template-columns: auto 34px 1fr;
+  grid-template-columns: auto 34px;
   align-items: center;
   gap: 7px;
   color: #bbb;
@@ -499,11 +523,108 @@ body.space-pan #map-canvas {
   cursor: pointer;
 }
 
-.color-control output {
+.hex-color-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 10px;
+  color: #bbb;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 10px;
+}
+
+.hex-color-control input {
+  width: 88px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid #343434;
+  border-radius: 0;
+  outline: none;
+  background: #111;
   color: var(--accent);
-  font-family: Consolas, monospace;
-  font-size: 9px;
+  font: inherit;
   text-transform: uppercase;
+}
+
+.hex-color-control input:focus {
+  border-color: #fff;
+}
+
+.tileset-view-control,
+.single-tile-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  color: #bbb;
+  font-size: 10px;
+}
+
+.tileset-view-buttons {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+}
+
+.tileset-view-button,
+.tile-nav-button {
+  border: 1px solid #343434;
+  border-radius: 0;
+  background: #111;
+  color: #aaa;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.tileset-view-button {
+  flex: 1;
+  padding: 5px 6px;
+}
+
+.tileset-view-button:hover,
+.tileset-view-button:focus-visible,
+.tileset-view-button.active {
+  border-color: #fff;
+  color: #fff;
+  outline: none;
+}
+
+.single-tile-control {
+  justify-content: space-between;
+}
+
+.single-tile-control label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.single-tile-control input {
+  width: 42px;
+  padding: 4px 3px;
+  border: 1px solid #343434;
+  border-radius: 0;
+  background: #111;
+  color: #fff;
+  font: inherit;
+  text-align: center;
+}
+
+.tile-nav-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.tile-nav-button:hover,
+.tile-nav-button:focus-visible {
+  border-color: #fff;
+  color: #fff;
+  outline: none;
 }
 
 .option-toggle input {

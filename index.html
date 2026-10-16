@@ -11,7 +11,9 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">SR</div>
+          <div class="brand-mark" aria-hidden="true">
+            <img id="editor-icon" src="data/map_editor.png" alt="" />
+          </div>
           <div>
             <p class="eyebrow">STICK RANGER 2</p>
           <h1 id="editor-title">Map editor</h1>
@@ -46,6 +48,24 @@
                 <option value="__new_tileset__">+new tileset</option>
               </select>
             </label>
+          </div>
+
+          <div id="tileset-view-controls" class="tileset-view-controls" hidden>
+            <div class="tileset-view-control" aria-label="Tileset view mode">
+              <span>View</span>
+              <div class="tileset-view-buttons" role="group" aria-label="Tileset view mode">
+                <button id="whole-tileset-mode" class="tileset-view-button active" type="button" aria-pressed="true">Whole</button>
+                <button id="single-tileset-mode" class="tileset-view-button" type="button" aria-pressed="false">Single</button>
+              </div>
+            </div>
+            <div id="single-tile-control" class="single-tile-control" hidden>
+              <button id="previous-tile" class="tile-nav-button" type="button" aria-label="Previous tile">‹</button>
+              <label for="tile-number">
+                <span>Tile</span>
+                <input id="tile-number" type="number" min="1" max="64" step="1" value="1" inputmode="numeric" />
+              </label>
+              <button id="next-tile" class="tile-nav-button" type="button" aria-label="Next tile">›</button>
+            </div>
           </div>
 
           <div class="canvas-frame tileset-frame">
@@ -125,7 +145,10 @@
             <label class="color-control" for="tileset-color">
               <span>Color</span>
               <input id="tileset-color" type="color" value="#ffffff" aria-label="Tileset drawing color" />
-              <output id="tileset-color-value" for="tileset-color">#ffffff</output>
+            </label>
+            <label class="hex-color-control" for="tileset-color-hex">
+              <span>Hex</span>
+              <input id="tileset-color-hex" type="text" value="#FFFFFF" maxlength="7" inputmode="text" spellcheck="false" autocomplete="off" aria-label="Tileset drawing color hex value" />
             </label>
           </div>
 
@@ -162,7 +185,7 @@
           </div>
 
           <div class="canvas-frame map-frame">
-            <canvas id="map-canvas" width="800" height="450" tabindex="0" aria-label="80 by 45 editable map"></canvas>
+            <canvas id="map-canvas" width="640" height="360" tabindex="0" aria-label="80 by 45 editable map"></canvas>
           </div>
 
           <div class="map-footer">
